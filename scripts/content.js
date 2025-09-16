@@ -227,6 +227,12 @@
             currentUrl: window.location.href,
             detectedAt: new Date().toISOString(),
         })
+
+        // Notify background script about environment change
+        chrome.runtime.sendMessage({
+            action: 'environmentUpdated',
+            data: environment,
+        })
     }
 
     /**

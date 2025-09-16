@@ -3,6 +3,12 @@
  * Handles extension lifecycle and message routing
  */
 
+// Default colors for different environments
+const ENVIRONMENT_COLORS = {
+    development: '#28a745', // Green
+    staging: '#e60076', // Pink
+}
+
 /**
  * Extension installation/update
  *
@@ -55,6 +61,102 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
 })
 
 /**
+ * Detects environment from URL
+ *
+ * @param {string} url The URL to analyze
+ * @returns {Object|null} Environment object or null
+ * @since 0.1
+ * @author Raphael Sanchez <hello@raphaelsanchez.design>
+ */
+function detectEnvironmentFromUrl(url) {
+    try {
+        const hostname = new URL(url).hostname.toLowerCase()
+
+        // Check for localhost or 127.x.x.x
+        if (hostname === 'localhost' || hostname.startsWith('127.')) {
+            return {
+                type: 'development',
+                name: 'Development',
+                color: ENVIRONMENT_COLORS.development,
+            }
+        }
+
+        // Check for development TLDs
+        if (
+            hostname.endsWith('.dev') ||
+            hostname.endsWith('.test') ||
+            hostname.endsWith('.local')
+        ) {
+            return {
+                type: 'development',
+                name: 'Development',
+                color: '#4f39f6', // Different color for TLDs
+            }
+        }
+
+        // Check for staging patterns
+        const stagingPatterns = [
+            /staging/i,
+            /stage/i,
+            /preview/i,
+            /demo/i,
+            /test/i,
+        ]
+
+        for (const pattern of stagingPatterns) {
+            if (pattern.test(hostname)) {
+                return {
+                    type: 'staging',
+                    name: 'Staging',
+                    color: ENVIRONMENT_COLORS.staging,
+                }
+            }
+        }
+
+        return null // No environment detected
+    } catch (error) {
+        return null // Invalid URL
+    }
+}
+
+/**
+ * Updates the extension badge for a specific tab
+ *
+ * @param {number} tabId The tab ID
+ * @param {string} url The URL of the tab
+ * @since 0.1
+ * @author Raphael Sanchez <hello@raphaelsanchez.design>
+ */
+async function updateExtensionBadge(tabId, url) {
+    try {
+        const environment = detectEnvironmentFromUrl(url)
+
+        if (environment) {
+            // Set badge for detected environment
+            chrome.action.setBadgeText({ tabId, text: 'env' })
+            chrome.action.setBadgeBackgroundColor({
+                tabId,
+                color: environment.color,
+            })
+            chrome.action.setTitle({
+                tabId,
+                title: `WordPress Environment Indicator - ${environment.name} detected`,
+            })
+        } else {
+            // Clear badge for production or non-WordPress sites
+            chrome.action.setBadgeText({ tabId, text: '' })
+            chrome.action.setTitle({
+                tabId,
+                title: 'WordPress Environment Indicator',
+            })
+        }
+    } catch (error) {
+        // Invalid URL or other error, clear badge
+        chrome.action.setBadgeText({ tabId, text: '' })
+    }
+}
+
+/**
  * Handles tab updates to refresh environment detection
  *
  * @param {Object} tabId The tab ID
@@ -66,6 +168,9 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
 chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
     // Only process when page is completely loaded
     if (changeInfo.status === 'complete' && tab.url) {
+        // Update badge based on URL
+        updateExtensionBadge(tabId, tab.url)
+
         // Inject content script on all pages - it will handle WordPress detection
         chrome.scripting
             .executeScript({
@@ -76,6 +181,20 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
                 // Script might already be injected, ignore error
                 console.log('Content script injection skipped:', error.message)
             })
+    }
+})
+
+/**
+ * Handles tab activation changes
+ *
+ * @param {Object} activeInfo The active info object
+ * @since 0.1
+ * @author Raphael Sanchez <hello@raphaelsanchez.design>
+ */
+chrome.tabs.onActivated.addListener(async function (activeInfo) {
+    const tab = await chrome.tabs.get(activeInfo.tabId)
+    if (tab && tab.url) {
+        updateExtensionBadge(activeInfo.tabId, tab.url)
     }
 })
 

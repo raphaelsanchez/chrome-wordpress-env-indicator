@@ -99,24 +99,13 @@
      * @author Raphael Sanchez <hello@raphaelsanchez.design>
      */
     function loadEnvironmentData() {
-        chrome.storage.local.get(
-            ['currentEnvironment', 'detectedAt'],
-            function (data) {
-                if (data.currentEnvironment) {
-                    currentEnvironment = data.currentEnvironment
-                    updateEnvironmentDisplay()
+        chrome.tabs.query(
+            { active: true, currentWindow: true },
+            function (tabs) {
+                if (tabs[0] && tabs[0].url) {
+                    detectEnvironmentInPopup(tabs[0].url)
                 } else {
-                    // Try to detect environment from current tab
-                    chrome.tabs.query(
-                        { active: true, currentWindow: true },
-                        function (tabs) {
-                            if (tabs[0] && tabs[0].url) {
-                                detectEnvironmentInPopup(tabs[0].url)
-                            } else {
-                                showNoDataState()
-                            }
-                        }
-                    )
+                    showNoDataState()
                 }
             }
         )

@@ -72,39 +72,42 @@ function detectEnvironmentFromUrl(url) {
     try {
         const hostname = new URL(url).hostname.toLowerCase()
 
-        // Check for localhost or 127.x.x.x
-        if (hostname === 'localhost' || hostname.startsWith('127.')) {
-            return {
-                type: 'development',
-                name: 'Development',
-                color: ENVIRONMENT_COLORS.development,
-            }
-        }
+        // Development environment detection patterns
+        const developmentPatterns = [
+            {
+                patterns: ['localhost', '127.'],
+                matcher: (host, pattern) =>
+                    host === pattern || host.startsWith(pattern),
+            },
+            {
+                patterns: ['.dev', '.test', '.local'],
+                matcher: (host, pattern) => host.endsWith(pattern),
+            },
+        ]
+        // Staging environment detection patterns
+        const stagingPatterns = [
+            {
+                patterns: ['staging', 'stage', 'preview', 'demo', 'test'],
+                matcher: (host, pattern) => pattern.test(host),
+            },
+        ]
 
-        // Check for development TLDs
-        if (
-            hostname.endsWith('.dev') ||
-            hostname.endsWith('.test') ||
-            hostname.endsWith('.local')
-        ) {
-            return {
-                type: 'development',
-                name: 'Development',
-                color: '#4f39f6', // Different color for TLDs
+        // Development environment detection
+        for (const { patterns, matcher } of developmentPatterns) {
+            if (patterns.some((pattern) => matcher(hostname, pattern))) {
+                return {
+                    type: 'development',
+                    name: 'Development',
+                    color: patterns.includes('.dev')
+                        ? '#4f39f6'
+                        : ENVIRONMENT_COLORS.development,
+                }
             }
         }
 
         // Check for staging patterns
-        const stagingPatterns = [
-            /staging/i,
-            /stage/i,
-            /preview/i,
-            /demo/i,
-            /test/i,
-        ]
-
-        for (const pattern of stagingPatterns) {
-            if (pattern.test(hostname)) {
+        for (const { patterns, matcher } of stagingPatterns) {
+            if (patterns.some((pattern) => matcher(hostname, pattern))) {
                 return {
                     type: 'staging',
                     name: 'Staging',

@@ -22,6 +22,38 @@
     let currentEnvironment = null
 
     /**
+     * Environment configuration constants
+     */
+    const ENVIRONMENT_CONFIG = {
+        development: {
+            type: 'development',
+            name: 'Development',
+            color: '#28a745',
+        },
+        staging: {
+            type: 'staging',
+            name: 'Staging',
+            color: '#ffc107',
+        },
+    }
+
+    /**
+     * Development TLD patterns
+     */
+    const DEVELOPMENT_TLDS = ['.dev', '.test', '.local']
+
+    /**
+     * Staging hostname patterns
+     */
+    const STAGING_PATTERNS = [
+        /staging/i,
+        /stage/i,
+        /preview/i,
+        /demo/i,
+        /test/i,
+    ]
+
+    /**
      * Initializes the popup
      *
      * @since 0.1
@@ -149,6 +181,32 @@
     }
 
     /**
+     * Handles WordPress info response from content script
+     *
+     * @param {Object} response The response from content script
+     * @param {string} tabId The tab ID for fallback
+     */
+    function handleWordPressInfoResponse(response, tabId) {
+        if (chrome.runtime.lastError || !response) {
+            // Fallback: try to detect from current tab
+            detectWordPressInfoFromTab(tabId)
+        } else {
+            updateWordPressInfoElements(response)
+        }
+    }
+
+    /**
+     * Sets default WordPress info when no tab is available
+     */
+    function setDefaultWordPressInfo() {
+        updateWordPressInfoElements({
+            version: '-',
+            language: '-',
+            theme: '-',
+        })
+    }
+
+    /**
      * Detects the WordPress version and language
      *
      * @since 0.1
@@ -164,26 +222,140 @@
                         tabs[0].id,
                         { action: 'getWordPressInfo' },
                         function (response) {
-                            if (chrome.runtime.lastError || !response) {
-                                // Fallback: try to detect from current tab
-                                detectWordPressInfoFromTab(tabs[0].id)
-                            } else {
-                                elements.wpVersion.textContent =
-                                    response.version || '-'
-                                elements.wpLanguage.textContent =
-                                    response.language || '-'
-                                elements.currentTheme.textContent =
-                                    response.theme || '-'
-                            }
+                            handleWordPressInfoResponse(response, tabs[0].id)
                         }
                     )
                 } else {
-                    elements.wpVersion.textContent = '-'
-                    elements.wpLanguage.textContent = '-'
-                    elements.currentTheme.textContent = '-'
+                    setDefaultWordPressInfo()
                 }
             }
         )
+    }
+
+    /**
+     * Extracts WordPress version from generator meta tag
+     *
+     * @returns {string} WordPress version or default value
+     */
+    function getVersionFromGenerator() {
+        const generator = document.querySelector(
+            CONFIG.wordpress.selectors.generator
+        )
+        if (generator && generator.content.includes('WordPress')) {
+            const match = generator.content.match(
+                CONFIG.wordpress.patterns.version.generator
+            )
+            if (match) {
+                return match[1]
+            }
+        }
+        return CONFIG.wordpress.defaults.version
+    }
+
+    /**
+     * Extracts WordPress version from script sources
+     *
+     * @returns {string} WordPress version or default value
+     */
+    function getVersionFromScripts() {
+        const scripts = document.querySelectorAll(
+            CONFIG.wordpress.selectors.scripts
+        )
+        for (const script of scripts) {
+            const match = script.src.match(
+                CONFIG.wordpress.patterns.version.script
+            )
+            if (match) {
+                return match[1]
+            }
+        }
+        return CONFIG.wordpress.defaults.version
+    }
+
+    /**
+     * Gets WordPress version using multiple detection methods
+     *
+     * @returns {string} WordPress version
+     */
+    function getWordPressVersion() {
+        const generatorVersion = getVersionFromGenerator()
+        if (generatorVersion !== CONFIG.wordpress.defaults.version) {
+            return generatorVersion
+        }
+        return getVersionFromScripts()
+    }
+
+    /**
+     * Extracts language from HTML element attributes
+     *
+     * @returns {string} Language code or default value
+     */
+    function getWordPressLanguage() {
+        const html = document.documentElement
+        return (
+            html.getAttribute('lang') ||
+            html.getAttribute('xml:lang') ||
+            CONFIG.wordpress.defaults.language
+        )
+    }
+
+    /**
+     * Extracts theme name from body classes
+     *
+     * @returns {string} Theme name or default value
+     */
+    function getThemeFromBodyClasses() {
+        const bodyClasses = document.body.className
+        const themeMatch = bodyClasses.match(
+            CONFIG.wordpress.patterns.theme.bodyClass
+        )
+        return themeMatch ? themeMatch[1] : CONFIG.wordpress.defaults.theme
+    }
+
+    /**
+     * Extracts theme name from stylesheet links
+     *
+     * @returns {string} Theme name or default value
+     */
+    function getThemeFromStylesheets() {
+        const themeLink = document.querySelector(
+            CONFIG.wordpress.selectors.themeStylesheet
+        )
+        if (themeLink) {
+            const themeMatch = themeLink.href.match(
+                CONFIG.wordpress.patterns.theme.stylesheet
+            )
+            if (themeMatch) {
+                return themeMatch[1]
+            }
+        }
+        return CONFIG.wordpress.defaults.theme
+    }
+
+    /**
+     * Gets WordPress theme using multiple detection methods
+     *
+     * @returns {string} Theme name
+     */
+    function getWordPressTheme() {
+        const bodyClassTheme = getThemeFromBodyClasses()
+        if (bodyClassTheme !== CONFIG.wordpress.defaults.theme) {
+            return bodyClassTheme
+        }
+        return getThemeFromStylesheets()
+    }
+
+    /**
+     * Update WordPress info elements in popup
+     *
+     * @param {Object} wpInfo WordPress information object
+     * @since 0.1
+     * @author Raphael Sanchez <hello@raphaelsanchez.design>
+     */
+    function updateWordPressInfoElements(wpInfo) {
+        elements.wpVersion.textContent = wpInfo.version || '-'
+        elements.wpLanguage.textContent = wpInfo.language || '-'
+        elements.currentTheme.textContent = wpInfo.theme || '-'
     }
 
     /**
@@ -299,19 +471,6 @@
     }
 
     /**
-     * Update WordPress info elements in popup
-     *
-     * @param {Object} wpInfo WordPress information object
-     * @since 0.1
-     * @author Raphael Sanchez <hello@raphaelsanchez.design>
-     */
-    function updateWordPressInfoElements(wpInfo) {
-        elements.wpVersion.textContent = wpInfo.version || '-'
-        elements.wpLanguage.textContent = wpInfo.language || '-'
-        elements.currentTheme.textContent = wpInfo.theme || '-'
-    }
-
-    /**
      * Fallback WordPress info detection
      *
      * @param {string} tabId The ID of the tab
@@ -345,6 +504,68 @@
     }
 
     /**
+     * Checks if hostname is a local development environment
+     *
+     * @param {string} hostname The hostname to check
+     * @returns {boolean} True if local development
+     */
+    function isLocalDevelopment(hostname) {
+        return hostname === 'localhost' || hostname.startsWith('127.')
+    }
+
+    /**
+     * Checks if hostname uses development TLD
+     *
+     * @param {string} hostname The hostname to check
+     * @returns {boolean} True if development TLD
+     */
+    function isDevelopmentTLD(hostname) {
+        return DEVELOPMENT_TLDS.some((tld) => hostname.endsWith(tld))
+    }
+
+    /**
+     * Checks if hostname matches staging patterns
+     *
+     * @param {string} hostname The hostname to check
+     * @returns {boolean} True if staging environment
+     */
+    function isStagingEnvironment(hostname) {
+        return STAGING_PATTERNS.some((pattern) => pattern.test(hostname))
+    }
+
+    /**
+     * Detects environment type based on hostname
+     *
+     * @param {string} hostname The hostname to analyze
+     * @returns {Object|null} Environment configuration or null
+     */
+    function detectEnvironmentType(hostname) {
+        if (isLocalDevelopment(hostname) || isDevelopmentTLD(hostname)) {
+            return ENVIRONMENT_CONFIG.development
+        }
+
+        if (isStagingEnvironment(hostname)) {
+            return ENVIRONMENT_CONFIG.staging
+        }
+
+        return null
+    }
+
+    /**
+     * Updates UI based on detected environment
+     *
+     * @param {Object|null} environment Environment configuration or null
+     */
+    function updateEnvironmentUI(environment) {
+        if (environment) {
+            currentEnvironment = environment
+            updateEnvironmentDisplay()
+        } else {
+            showNoDataState()
+        }
+    }
+
+    /**
      * Fallback environment detection in popup
      *
      * @param {string} url The URL of the tab
@@ -356,57 +577,8 @@
             const urlObj = new URL(url)
             const hostname = urlObj.hostname
 
-            let environment = null
-
-            // Check for localhost or 127.x.x.x
-            if (hostname === 'localhost' || hostname.startsWith('127.')) {
-                environment = {
-                    type: 'development',
-                    name: 'Development',
-                    color: '#28a745',
-                }
-            }
-            // Check for development TLDs
-            else if (
-                hostname.endsWith('.dev') ||
-                hostname.endsWith('.test') ||
-                hostname.endsWith('.local')
-            ) {
-                environment = {
-                    type: 'development',
-                    name: 'Development',
-                    color: '#28a745',
-                }
-            }
-            // Check for staging patterns
-            else {
-                const stagingPatterns = [
-                    /staging/i,
-                    /stage/i,
-                    /preview/i,
-                    /demo/i,
-                    /test/i,
-                ]
-
-                for (const pattern of stagingPatterns) {
-                    if (pattern.test(hostname)) {
-                        environment = {
-                            type: 'staging',
-                            name: 'Staging',
-                            color: '#ffc107',
-                        }
-                        break
-                    }
-                }
-            }
-
-            // Update display with detected environment or show no data
-            if (environment) {
-                currentEnvironment = environment
-                updateEnvironmentDisplay()
-            } else {
-                showNoDataState()
-            }
+            const environment = detectEnvironmentType(hostname)
+            updateEnvironmentUI(environment)
         } catch (error) {
             console.log('Error detecting environment:', error)
             showNoDataState()

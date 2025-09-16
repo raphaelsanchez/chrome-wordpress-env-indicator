@@ -1,14 +1,15 @@
 {
-    "$schema": "https://json.schemastore.org/chrome-manifest",
     "manifest_version": 3,
+    "$schema": "https://json.schemastore.org/chrome-manifest",
+
     "name": "WordPress Environment Indicator",
-    "version": "0.1",
+    "short_name": "WP Env Indicator",
+    "homepage_url": "https://github.com/raphaelsanchez/wordpress-env-indicator",
     "description": "Extension that automatically detects WordPress development environments and add a badge to the admin bar to improve the developer experience.",
-
-    "permissions": ["storage", "activeTab"],
-
+    "version": "0.1",
+    "author": "Raphael Sanchez",
+    "permissions": ["storage", "activeTab", "scripting"],
     "host_permissions": ["*://*/*"],
-
     "content_scripts": [
         {
             "matches": ["*://*/*"],
@@ -16,16 +17,13 @@
             "css": ["styles.css"]
         }
     ],
-
     "action": {
         "default_popup": "popup/popup.html",
         "default_title": "WordPress Environment Indicator"
     },
-
     "background": {
         "service_worker": "background.js"
     },
-
     "icons": {
         "16": "images/icon16.png",
         "32": "images/icon32.png",

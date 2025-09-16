@@ -1,0 +1,75 @@
+/**
+ * Styles for WordPress Environment Indicator
+ * These styles are injected into WordPress admin pages
+ */
+
+:root {
+    --wp-env-bg-default: #f6f7f7;
+    --wp-env-color-default: #3c434a;
+    --wp-env-bg-development: #4f39f6;
+    --wp-env-bg-staging: #e60076;
+    --wp-env-color-white: #fff;
+    --wp-env-border-radius: 2px;
+    --wp-env-font-size: 12px;
+    --wp-env-line-height: 16px;
+    --wp-env-spacing-xs: 2px;
+    --wp-env-spacing-sm: 4px;
+    --wp-env-spacing-md: 6px;
+    --wp-env-spacing-lg: 8px;
+}
+
+/* ==========================================================================
+   Badge Link Styles
+   ========================================================================== */
+
+.wp-env-badge-link {
+    display: flex;
+    align-items: center;
+    gap: var(--wp-env-spacing-lg);
+    padding: var(--wp-env-spacing-xs) var(--wp-env-spacing-md);
+}
+
+.wp-env-badge-link:hover {
+    opacity: 0.8 !important;
+}
+
+.wp-env-badge-link .wp-env-text {
+    font-weight: 500;
+    line-height: var(--wp-env-line-height);
+    height: unset !important;
+    padding: var(--wp-env-spacing-xs) var(--wp-env-spacing-md) !important;
+    background-color: var(--wp-env-bg-default);
+    border-radius: var(--wp-env-border-radius) !important;
+    color: var(--wp-env-color-default);
+    font-size: var(--wp-env-font-size);
+    letter-spacing: 0.5px;
+}
+
+/* ==========================================================================
+   Environment-Specific Colors
+   ========================================================================== */
+
+.wp-env-development .wp-env-text {
+    background-color: var(--wp-env-bg-development) !important;
+    color: var(--wp-env-color-white) !important;
+}
+
+.wp-env-staging .wp-env-text {
+    background-color: var(--wp-env-bg-staging) !important;
+    color: var(--wp-env-color-white) !important;
+}
+
+/* ==========================================================================
+   Responsive Design
+   ========================================================================== */
+
+@media (max-width: 782px) {
+    .wp-env-badge-link {
+        font-size: var(--wp-env-font-size) !important;
+        padding: var(--wp-env-spacing-sm) var(--wp-env-spacing-lg) !important;
+    }
+
+    .wp-env-text {
+        font-size: var(--wp-env-font-size);
+    }
+}

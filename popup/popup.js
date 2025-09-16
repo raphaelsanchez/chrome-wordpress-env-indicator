@@ -187,6 +187,131 @@
     }
 
     /**
+     * Detect WordPress version from meta generator tag
+     *
+     * @returns {string} WordPress version or '-'
+     * @since 0.1
+     * @author Raphael Sanchez <hello@raphaelsanchez.design>
+     */
+    function detectWordPressVersionFromGenerator() {
+        const generator = document.querySelector('meta[name="generator"]')
+        if (generator && generator.content.includes('WordPress')) {
+            const match = generator.content.match(/WordPress\s+([\d.]+)/)
+            if (match) {
+                return match[1]
+            }
+        }
+        return '-'
+    }
+
+    /**
+     * Detect WordPress version from wp-includes scripts
+     *
+     * @returns {string} WordPress version or '-'
+     * @since 0.1
+     * @author Raphael Sanchez <hello@raphaelsanchez.design>
+     */
+    function detectWordPressVersionFromScripts() {
+        const scripts = document.querySelectorAll('script[src*="wp-includes"]')
+        for (const script of scripts) {
+            const match = script.src.match(
+                /wp-includes\/js\/wp-([\d.]+)\.min\.js/
+            )
+            if (match) {
+                return match[1]
+            }
+        }
+        return '-'
+    }
+
+    /**
+     * Detect WordPress version using multiple methods
+     *
+     * @returns {string} WordPress version or '-'
+     * @since 0.1
+     * @author Raphael Sanchez <hello@raphaelsanchez.design>
+     */
+    function detectWordPressVersion() {
+        let version = detectWordPressVersionFromGenerator()
+        if (version === '-') {
+            version = detectWordPressVersionFromScripts()
+        }
+        return version
+    }
+
+    /**
+     * Detect page language
+     *
+     * @returns {string} Language code or '-'
+     * @since 0.1
+     * @author Raphael Sanchez <hello@raphaelsanchez.design>
+     */
+    function detectPageLanguage() {
+        const html = document.documentElement
+        return html.getAttribute('lang') || html.getAttribute('xml:lang') || '-'
+    }
+
+    /**
+     * Detect theme from body classes
+     *
+     * @returns {string} Theme name or null
+     * @since 0.1
+     * @author Raphael Sanchez <hello@raphaelsanchez.design>
+     */
+    function detectThemeFromBodyClasses() {
+        const bodyClasses = document.body.className
+        const themeMatch = bodyClasses.match(/theme-([a-zA-Z0-9-_]+)/)
+        return themeMatch ? themeMatch[1] : null
+    }
+
+    /**
+     * Detect theme from stylesheet links
+     *
+     * @returns {string} Theme name or null
+     * @since 0.1
+     * @author Raphael Sanchez <hello@raphaelsanchez.design>
+     */
+    function detectThemeFromStylesheets() {
+        const themeLink = document.querySelector(
+            'link[rel="stylesheet"][href*="themes"]'
+        )
+        if (themeLink) {
+            const href = themeLink.href
+            const themeMatch = href.match(/themes\/([^\/]+)/)
+            return themeMatch ? themeMatch[1] : null
+        }
+        return null
+    }
+
+    /**
+     * Detect WordPress theme using multiple methods
+     *
+     * @returns {string} Theme name or '-'
+     * @since 0.1
+     * @author Raphael Sanchez <hello@raphaelsanchez.design>
+     */
+    function detectWordPressTheme() {
+        let theme = detectThemeFromBodyClasses()
+        if (!theme) {
+            theme = detectThemeFromStylesheets()
+        }
+        return theme || '-'
+    }
+
+    /**
+     * Update WordPress info elements in popup
+     *
+     * @param {Object} wpInfo WordPress information object
+     * @since 0.1
+     * @author Raphael Sanchez <hello@raphaelsanchez.design>
+     */
+    function updateWordPressInfoElements(wpInfo) {
+        elements.wpVersion.textContent = wpInfo.version || '-'
+        elements.wpLanguage.textContent = wpInfo.language || '-'
+        elements.currentTheme.textContent = wpInfo.theme || '-'
+    }
+
+    /**
      * Fallback WordPress info detection
      *
      * @param {string} tabId The ID of the tab
@@ -198,82 +323,22 @@
             {
                 target: { tabId: tabId },
                 func: function () {
-                    // Try to detect WordPress version, language and theme
-                    let version = '-'
-                    let language = '-'
-                    let theme = '-'
-
-                    // Check meta generator tag
-                    const generator = document.querySelector(
-                        'meta[name="generator"]'
-                    )
-                    if (generator && generator.content.includes('WordPress')) {
-                        const match =
-                            generator.content.match(/WordPress\s+([\d.]+)/)
-                        if (match) {
-                            version = match[1]
-                        }
+                    return {
+                        version: detectWordPressVersion(),
+                        language: detectPageLanguage(),
+                        theme: detectWordPressTheme(),
                     }
-
-                    // Check for wp-includes version
-                    if (version === '-') {
-                        const scripts = document.querySelectorAll(
-                            'script[src*="wp-includes"]'
-                        )
-                        for (const script of scripts) {
-                            const match = script.src.match(
-                                /wp-includes\/js\/wp-([\d.]+)\.min\.js/
-                            )
-                            if (match) {
-                                version = match[1]
-                                break
-                            }
-                        }
-                    }
-
-                    // Check for language
-                    const html = document.documentElement
-                    language =
-                        html.getAttribute('lang') ||
-                        html.getAttribute('xml:lang') ||
-                        '-'
-
-                    // Check for theme name in body classes
-                    const bodyClasses = document.body.className
-                    const themeMatch = bodyClasses.match(
-                        /theme-([a-zA-Z0-9-_]+)/
-                    )
-                    if (themeMatch) {
-                        theme = themeMatch[1]
-                    } else {
-                        // Try to get theme from wp_head
-                        const themeLink = document.querySelector(
-                            'link[rel="stylesheet"][href*="themes"]'
-                        )
-                        if (themeLink) {
-                            const href = themeLink.href
-                            const themeMatch = href.match(/themes\/([^\/]+)/)
-                            if (themeMatch) {
-                                theme = themeMatch[1]
-                            }
-                        }
-                    }
-
-                    return { version, language, theme }
                 },
             },
             function (results) {
                 if (results && results[0] && results[0].result) {
-                    elements.wpVersion.textContent =
-                        results[0].result.version || '-'
-                    elements.wpLanguage.textContent =
-                        results[0].result.language || '-'
-                    elements.currentTheme.textContent =
-                        results[0].result.theme || '-'
+                    updateWordPressInfoElements(results[0].result)
                 } else {
-                    elements.wpVersion.textContent = '-'
-                    elements.wpLanguage.textContent = '-'
-                    elements.currentTheme.textContent = '-'
+                    updateWordPressInfoElements({
+                        version: '-',
+                        language: '-',
+                        theme: '-',
+                    })
                 }
             }
         )
